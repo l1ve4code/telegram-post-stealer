@@ -1,0 +1,14 @@
+services:
+  telegram-bot:
+    build: .
+    container_name: telegram-bot
+    network_mode: host  
+    volumes:
+      - ./data:/app/data  
+    environment:
+      - API_ID=YOUR_API_ID
+      - API_HASH=YOUR_API_HASH
+      - PHONE_NUMBER=YOUR_PHONE_NUMBER
+      - SOURCE_GROUP=SOURCE_GROUP_USERNAME_OR_ID
+      - TARGET_GROUP=TARGET_GROUP_USERNAME_OR_ID
+    restart: unless-stopped 
