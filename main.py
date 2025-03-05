@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS published_news (
 ''')
 conn.commit()
 
-client = TelegramClient('session_name', api_id, api_hash)
+client = TelegramClient('session_file', api_id, api_hash)
 
 async def check_missed_messages():
     """
