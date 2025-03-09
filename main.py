@@ -2,6 +2,7 @@ from telethon import TelegramClient, events
 import sqlite3
 import asyncio
 import os
+import re
 
 api_id = os.getenv('API_ID')
 api_hash = os.getenv('API_HASH')
@@ -27,6 +28,27 @@ conn.commit()
 client = TelegramClient(session_file, api_id, api_hash)
 
 
+def fix_markdown_formatting(text):
+    link_pattern = re.compile(r'\[(.*?)\]\((.*?)\)')
+
+    def replace_link(match):
+        link_text = match.group(1)
+        link_url = match.group(2)
+
+        clean_text = link_text.replace('**', '').replace('__', '')
+
+        return f'**[{clean_text}]({link_url})**'
+
+    text = link_pattern.sub(replace_link, text)
+
+    lines = text.split('\n')
+    for i, line in enumerate(lines):
+        if line.strip().startswith('>'):
+            lines[i] = f'>{line.strip()[1:]}'
+
+    return '\n'.join(lines)
+
+
 async def check_missed_messages():
     while True:
         try:
@@ -41,17 +63,19 @@ async def check_missed_messages():
                         if message_text or message.media:
                             if message.media:
                                 media_path = await message.download_media()
+                                fixed_text = fix_markdown_formatting(message_text)
                                 await client.send_file(
                                     target_group,
                                     media_path,
-                                    caption=message_text,
+                                    caption=fixed_text,
                                     parse_mode='md'
                                 )
                                 os.remove(media_path)
                             else:
+                                fixed_text = fix_markdown_formatting(message_text)
                                 await client.send_message(
                                     target_group,
-                                    message_text,
+                                    fixed_text,
                                     parse_mode='md'
                                 )
 
@@ -80,17 +104,19 @@ async def handler(event):
                 if message_text or event.message.media:
                     if event.message.media:
                         media_path = await event.message.download_media()
+                        fixed_text = fix_markdown_formatting(message_text)
                         await client.send_file(
                             target_group,
                             media_path,
-                            caption=message_text,
+                            caption=fixed_text,
                             parse_mode='md'
                         )
                         os.remove(media_path)
                     else:
+                        fixed_text = fix_markdown_formatting(message_text)
                         await client.send_message(
                             target_group,
-                            message_text,
+                            fixed_text,
                             parse_mode='md'
                         )
 
