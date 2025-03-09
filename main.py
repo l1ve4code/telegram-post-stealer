@@ -34,33 +34,34 @@ async def check_missed_messages():
             for message in messages:
                 message_id = message.id
 
-                cursor.execute('SELECT message_id FROM published_news WHERE message_id = ?', (message_id,))
-                if cursor.fetchone() is None:
-                    message_text = message.text
-                    if message_text or message.media:
-                        if message.media:
-                            media_path = await message.download_media()
-                            await client.send_file(
-                                target_group,
-                                media_path,
-                                caption=message_text,
-                                parse_mode='md'
-                            )
-                            os.remove(media_path)
-                        else:
-                            await client.send_message(
-                                target_group,
-                                message_text,
-                                parse_mode='md'
-                            )
+                with conn:
+                    cursor.execute('SELECT message_id FROM published_news WHERE message_id = ?', (message_id,))
+                    if cursor.fetchone() is None:
+                        message_text = message.text
+                        if message_text or message.media:
+                            if message.media:
+                                media_path = await message.download_media()
+                                await client.send_file(
+                                    target_group,
+                                    media_path,
+                                    caption=message_text,
+                                    parse_mode='md'
+                                )
+                                os.remove(media_path)
+                            else:
+                                await client.send_message(
+                                    target_group,
+                                    message_text,
+                                    parse_mode='md'
+                                )
 
-                        cursor.execute('INSERT INTO published_news (message_id) VALUES (?)', (message_id,))
-                        conn.commit()
-                        print(f"Пропущенная новость {message_id} опубликована в целевой группе.")
+                            cursor.execute('INSERT INTO published_news (message_id) VALUES (?)', (message_id,))
+                            conn.commit()
+                            print(f"Новость {message_id} опубликована в целевой группе.")
+                        else:
+                            print(f"Новость {message_id} не содержит текста или медиа.")
                     else:
-                        print(f"Новость {message_id} не содержит текста или медиа.")
-                else:
-                    print(f"Новость {message_id} уже была опубликована ранее.")
+                        print(f"Новость {message_id} уже была опубликована ранее.")
         except Exception as e:
             print(f"Ошибка при проверке пропущенных сообщений: {e}")
 
@@ -72,33 +73,34 @@ async def handler(event):
     try:
         message_id = event.message.id
 
-        cursor.execute('SELECT message_id FROM published_news WHERE message_id = ?', (message_id,))
-        if cursor.fetchone() is None:
-            message_text = event.message.text
-            if message_text or event.message.media:
-                if event.message.media:
-                    media_path = await event.message.download_media()
-                    await client.send_file(
-                        target_group,
-                        media_path,
-                        caption=message_text,
-                        parse_mode='md'
-                    )
-                    os.remove(media_path)
-                else:
-                    await client.send_message(
-                        target_group,
-                        message_text,
-                        parse_mode='md'
-                    )
+        with conn:
+            cursor.execute('SELECT message_id FROM published_news WHERE message_id = ?', (message_id,))
+            if cursor.fetchone() is None:
+                message_text = event.message.text
+                if message_text or event.message.media:
+                    if event.message.media:
+                        media_path = await event.message.download_media()
+                        await client.send_file(
+                            target_group,
+                            media_path,
+                            caption=message_text,
+                            parse_mode='md'
+                        )
+                        os.remove(media_path)
+                    else:
+                        await client.send_message(
+                            target_group,
+                            message_text,
+                            parse_mode='md'
+                        )
 
-                cursor.execute('INSERT INTO published_news (message_id) VALUES (?)', (message_id,))
-                conn.commit()
-                print(f"Новость {message_id} опубликована в целевой группе.")
+                    cursor.execute('INSERT INTO published_news (message_id) VALUES (?)', (message_id,))
+                    conn.commit()
+                    print(f"Новость {message_id} опубликована в целевой группе.")
+                else:
+                    print(f"Новость {message_id} не содержит текста или медиа.")
             else:
-                print(f"Новость {message_id} не содержит текста или медиа.")
-        else:
-            print(f"Новость {message_id} уже была опубликована ранее.")
+                print(f"Новость {message_id} уже была опубликована ранее.")
     except Exception as e:
         print(f"Ошибка при обработке сообщения {message_id}: {e}")
 
