@@ -20,7 +20,8 @@ cursor = conn.cursor()
 cursor.execute('''
 CREATE TABLE IF NOT EXISTS published_news (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    message_id INTEGER UNIQUE
+    message_id INTEGER UNIQUE,
+    publish_date DATE DEFAULT CURRENT_DATE
 )
 ''')
 conn.commit()
@@ -52,6 +53,12 @@ def fix_markdown_formatting(text):
 async def check_missed_messages():
     while True:
         try:
+            cursor.execute('SELECT message_id FROM published_news WHERE date(publish_date) = date("now")')
+            if cursor.fetchone() is not None:
+                print("Сегодня уже был переслан пост. Пропускаем проверку.")
+                await asyncio.sleep(3600)
+                continue
+
             messages = await client.get_messages(source_group, limit=10)
             for message in messages:
                 message_id = message.id
@@ -79,7 +86,9 @@ async def check_missed_messages():
                                     parse_mode='md'
                                 )
 
-                            cursor.execute('INSERT INTO published_news (message_id) VALUES (?)', (message_id,))
+                            cursor.execute(
+                                'INSERT INTO published_news (message_id, publish_date) VALUES (?, date("now"))',
+                                (message_id,))
                             conn.commit()
                             print(f"Новость {message_id} опубликована в целевой группе.")
                         else:
@@ -95,6 +104,11 @@ async def check_missed_messages():
 @client.on(events.NewMessage(chats=source_group))
 async def handler(event):
     try:
+        cursor.execute('SELECT message_id FROM published_news WHERE date(publish_date) = date("now")')
+        if cursor.fetchone() is not None:
+            print("Сегодня уже был переслан пост. Пропускаем новое сообщение.")
+            return
+
         message_id = event.message.id
 
         with conn:
@@ -120,7 +134,8 @@ async def handler(event):
                             parse_mode='md'
                         )
 
-                    cursor.execute('INSERT INTO published_news (message_id) VALUES (?)', (message_id,))
+                    cursor.execute('INSERT INTO published_news (message_id, publish_date) VALUES (?, date("now"))',
+                                   (message_id,))
                     conn.commit()
                     print(f"Новость {message_id} опубликована в целевой группе.")
                 else:
