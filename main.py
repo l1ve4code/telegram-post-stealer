@@ -92,8 +92,6 @@ async def handler(event):
 
 
 async def main():
-    asyncio.create_task(check_missed_messages())
-
     await client.start(phone=phone_number)
     print("Клиент запущен. Ожидание новых сообщений...")
     await client.run_until_disconnected()
