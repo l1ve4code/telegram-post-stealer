@@ -50,69 +50,14 @@ def fix_markdown_formatting(text):
     return '\n'.join(lines)
 
 
-async def check_missed_messages():
-    while True:
-        try:
-            cursor.execute('SELECT message_id FROM published_news WHERE date(publish_date) = date("now")')
-            if cursor.fetchone() is not None:
-                print("Сегодня уже был переслан пост. Пропускаем проверку.")
-                await asyncio.sleep(3600)
-                continue
-
-            messages = await client.get_messages(source_group, limit=10)
-            for message in messages:
-                message_id = message.id
-
-                with conn:
-                    cursor.execute('SELECT message_id FROM published_news WHERE message_id = ?', (message_id,))
-                    if cursor.fetchone() is None:
-                        message_text = message.text
-                        if message_text or message.media:
-                            if message.media:
-                                media_path = await message.download_media()
-                                fixed_text = fix_markdown_formatting(message_text)
-                                await client.send_file(
-                                    target_group,
-                                    media_path,
-                                    caption=fixed_text,
-                                    parse_mode='md'
-                                )
-                                os.remove(media_path)
-                            else:
-                                fixed_text = fix_markdown_formatting(message_text)
-                                await client.send_message(
-                                    target_group,
-                                    fixed_text,
-                                    parse_mode='md'
-                                )
-
-                            cursor.execute(
-                                'INSERT INTO published_news (message_id, publish_date) VALUES (?, date("now"))',
-                                (message_id,))
-                            conn.commit()
-                            print(f"Новость {message_id} опубликована в целевой группе.")
-                        else:
-                            print(f"Новость {message_id} не содержит текста или медиа.")
-                    else:
-                        print(f"Новость {message_id} уже была опубликована ранее.")
-        except Exception as e:
-            print(f"Ошибка при проверке пропущенных сообщений: {e}")
-
-        await asyncio.sleep(300)
-
-
 @client.on(events.NewMessage(chats=source_group))
 async def handler(event):
     try:
-        cursor.execute('SELECT message_id FROM published_news WHERE date(publish_date) = date("now")')
-        if cursor.fetchone() is not None:
-            print("Сегодня уже был переслан пост. Пропускаем новое сообщение.")
-            return
-
         message_id = event.message.id
-
         with conn:
-            cursor.execute('SELECT message_id FROM published_news WHERE message_id = ?', (message_id,))
+            cursor.execute(
+                'SELECT 1 FROM published_news WHERE message_id = ? or date(publish_date) = date("now")',
+                (message_id,))
             if cursor.fetchone() is None:
                 message_text = event.message.text
                 if message_text or event.message.media:
